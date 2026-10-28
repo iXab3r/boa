@@ -1,5 +1,6 @@
 [package]
 name = "boa_engine"
+workspace = "../.."
 keywords = ["javascript", "js", "compiler", "lexer", "parser"]
 categories = ["parser-implementations", "compilers"]
 readme = "../../README.md"
@@ -92,13 +93,13 @@ xsum = ["dep:xsum"]
 native-backtrace = []
 
 [dependencies]
-tag_ptr.workspace = true
-boa_interner.workspace = true
-boa_gc = { workspace = true, features = ["thin-vec", "boa_string", "arrayvec"] }
-boa_macros.workspace = true
-boa_ast.workspace = true
-boa_parser.workspace = true
-boa_string.workspace = true
+tag_ptr = "=0.1.0"
+boa_interner = "=0.22.0"
+boa_gc = { version = "=0.22.0", features = ["thin-vec", "boa_string", "arrayvec"] }
+boa_macros = "=0.22.0"
+boa_ast = "=0.22.0"
+boa_parser = "=0.22.0"
+boa_string = "=0.22.0"
 cow-utils.workspace = true
 futures-lite.workspace = true
 float16 = { version = "0.1", optional = true }
@@ -117,7 +118,7 @@ indexmap = { workspace = true, features = ["std"] }
 ryu-js.workspace = true
 fast-float2.workspace = true
 tap.workspace = true
-small_btree.workspace = true
+small_btree = "=0.1.0"
 pastey.workspace = true
 thiserror.workspace = true
 dashmap.workspace = true
@@ -144,7 +145,7 @@ oneshot = { workspace = true, features = ["async"] }
 async-channel.workspace = true
 
 # intl deps
-boa_icu_provider = { workspace = true, features = ["std"], optional = true }
+boa_icu_provider = { version = "=0.22.0", features = ["std"], optional = true }
 sys-locale = { workspace = true, optional = true }
 icu_provider = { workspace = true, optional = true }
 icu_locale = { workspace = true, default-features = false, features = [

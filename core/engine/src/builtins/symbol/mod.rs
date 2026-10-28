@@ -64,19 +64,19 @@ impl GlobalSymbolRegistry {
 
     fn get_or_create_symbol(&self, key: &JsString) -> JsResult<JsSymbol> {
         let slice = key.iter().collect::<Vec<_>>();
-        if let Some(symbol) = self.keys.get(&slice[..]) {
-            return Ok(symbol.clone());
+        match self.keys.entry(slice.into_boxed_slice()) {
+            dashmap::mapref::entry::Entry::Occupied(entry) => Ok(entry.get().clone()),
+            dashmap::mapref::entry::Entry::Vacant(entry) => {
+                let symbol = JsSymbol::new(Some(key.clone())).ok_or_else(|| {
+                    JsNativeError::range()
+                        .with_message("reached the maximum number of symbols that can be created")
+                })?;
+                // Publish the reverse lookup before making this canonical symbol visible.
+                self.symbols.insert(symbol.clone(), entry.key().clone());
+                entry.insert(symbol.clone());
+                Ok(symbol)
+            }
         }
-
-        let symbol = JsSymbol::new(Some(key.clone())).ok_or_else(|| {
-            JsNativeError::range()
-                .with_message("reached the maximum number of symbols that can be created")
-        })?;
-        self.keys
-            .insert(slice.clone().into_boxed_slice(), symbol.clone());
-        self.symbols
-            .insert(symbol.clone(), slice.into_boxed_slice());
-        Ok(symbol)
     }
 
     fn get_key(&self, sym: &JsSymbol) -> Option<JsString> {
