@@ -214,9 +214,12 @@ impl ModuleKind {
 /// Return value of the [`Module::resolve_export`] operation.
 ///
 /// Indicates how to access a specific export in a module.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Trace, Finalize)]
+#[boa_gc(unsafe_no_drop)]
 pub(crate) struct ResolvedBinding {
     module: Module,
+    // BindingName contains only a JsString or a unit variant, never a GC handle.
+    #[unsafe_ignore_trace]
     binding_name: BindingName,
 }
 

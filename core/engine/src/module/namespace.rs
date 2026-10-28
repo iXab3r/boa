@@ -28,15 +28,8 @@ pub struct ModuleNamespace {
     exports: IndexSet<JsString, BuildHasherDefault<FxHasher>>,
     /// Cached binding resolutions for each export name.
     /// Populated once during namespace creation; bindings are immutable after linking.
-    ///
-    /// SAFETY: Every `Module` inside a `ResolvedBinding` is a transitive dependency
-    /// of the parent `module` field (which IS traced). Those modules are reachable
-    /// through `SourceTextModule::loaded_modules` / `SyntheticModule`, so tracing
-    /// them again here would be redundant. Skipping the trace avoids walking the
-    /// entire hashmap on every GC cycle. This is a performance optimization:
-    /// our GC already ignores pointers that were already traced, but this avoids
-    /// a lookup to check if the pointer is alive. The logic is correct either way.
-    #[unsafe_ignore_trace]
+    /// Every cached Module handle must be traced for GC's non-root reference accounting,
+    /// even when the same module is also reachable through the module graph.
     resolved_bindings: FxHashMap<JsString, ResolvedBinding>,
 }
 
@@ -526,4 +519,76 @@ fn module_namespace_exotic_own_property_keys(
         .map(|k| PropertyKey::String(k.clone()))
         .chain(symbol_keys)
         .collect())
+}
+
+#[cfg(test)]
+mod gc_tests {
+    use super::*;
+    use std::{cell::Cell, rc::Rc};
+
+    #[derive(Trace, crate::JsData)]
+    struct Collected {
+        #[unsafe_ignore_trace]
+        count: Rc<Cell<usize>>,
+    }
+    impl Finalize for Collected {
+        fn finalize(&self) {
+            self.count.set(self.count.get() + 1);
+        }
+    }
+
+    #[test]
+    fn cached_export_bindings_do_not_root_unreachable_module_graphs() {
+        let count = Rc::new(Cell::new(0));
+        {
+            let mut context = Context::default();
+            let tracked = JsObject::from_proto_and_data(
+                None,
+                Collected {
+                    count: count.clone(),
+                },
+            );
+            context
+                .register_global_property(
+                    js_string!("tracked"),
+                    tracked,
+                    crate::property::Attribute::all(),
+                )
+                .unwrap();
+            let module = Module::parse(
+                crate::Source::from_bytes("export const root=tracked;delete globalThis.tracked;"),
+                None,
+                &mut context,
+            )
+            .unwrap();
+            let loading = module.load(&mut context);
+            context.run_jobs().unwrap();
+            assert!(matches!(
+                loading.state(),
+                crate::builtins::promise::PromiseState::Fulfilled(_)
+            ));
+            module.link(&mut context).unwrap();
+            let evaluation = module.evaluate(&mut context).unwrap();
+            context.run_jobs().unwrap();
+            assert!(matches!(
+                evaluation.state(),
+                crate::builtins::promise::PromiseState::Fulfilled(_)
+            ));
+            let namespace = module.namespace(&mut context);
+            assert!(
+                namespace
+                    .get(js_string!("root"), &mut context)
+                    .unwrap()
+                    .is_object()
+            );
+            boa_gc::force_collect();
+            assert_eq!(count.get(), 0, "reachable exports must stay alive");
+        }
+        boa_gc::force_collect();
+        assert_eq!(
+            count.get(),
+            1,
+            "cached export handles must not become permanent roots"
+        );
+    }
 }
