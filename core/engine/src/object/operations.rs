@@ -432,6 +432,13 @@ impl JsObject {
         args: &[JsValue],
         context: &mut Context,
     ) -> JsResult<JsValue> {
+        // Dispatch can fail before a frame exists (for example a revoked proxy or an
+        // `apply` getter that throws). Always release this call's operands on exit,
+        // preserving any caller operands across nested host calls.
+        let stack_len = context.vm.stack.len();
+        let mut guard = context.guard(move |context| context.vm.stack.truncate(stack_len));
+        let context = &mut *guard;
+
         // SKIP: 1. If argumentsList is not present, set argumentsList to a new empty List.
         // SKIP: 2. If IsCallable(F) is false, throw a TypeError exception.
         // NOTE(HalidOdat): For object's that are not callable we implement a special __call__ internal method

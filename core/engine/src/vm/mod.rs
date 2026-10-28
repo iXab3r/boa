@@ -126,6 +126,16 @@ pub(crate) struct Stack {
 }
 
 impl Stack {
+    /// Current number of rooted VM operands and registers.
+    pub(crate) fn len(&self) -> usize {
+        self.stack.len()
+    }
+
+    /// Restore a host operation's operand-stack boundary.
+    pub(crate) fn truncate(&mut self, len: usize) {
+        self.stack.truncate(len);
+    }
+
     /// Creates a new stack with the given capacity.
     fn new(capacity: usize) -> Self {
         Self {
