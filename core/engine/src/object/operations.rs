@@ -493,6 +493,13 @@ impl JsObject {
         // 1. If newTarget is not present, set newTarget to F.
         let new_target = new_target.unwrap_or(self);
 
+        // Dispatch can fail before a frame exists (for example a revoked proxy or a class
+        // constructor that is not constructible). Always release this call's operands on exit,
+        // preserving any caller operands across nested host calls.
+        let stack_len = context.vm.stack.len();
+        let mut guard = context.guard(move |context| context.vm.stack.truncate(stack_len));
+        let context = &mut *guard;
+
         context.vm.stack.push(JsValue::undefined());
         context.vm.stack.push(self.clone()); // func
         let argument_count = args.len();

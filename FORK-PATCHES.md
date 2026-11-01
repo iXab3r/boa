@@ -5,14 +5,15 @@ Base: `337a3668a0dc86dd401ea20906e782249a64a228` (tag `v0.22`, crates 0.22.0).
 Branches: `main` = base + the changes below; `upstream` = mirror of boa-dev/boa `main`.
 Full diff: [`v0.22...main`](https://github.com/iXab3r/boa/compare/337a3668a0dc86dd401ea20906e782249a64a228...main).
 
-Only the four changes below remain. Commit `3ed647f5` removed an earlier copy of these notes and
+Only the five changes below remain. Commit `3ed647f5` removed an earlier copy of these notes and
 changes no code. Keep the summary list in README.md in sync with this file.
 
 | Change | Commits | Upstream status |
 |---|---|---|
-| [Atomic `Symbol.for` registration](#atomic-symbolfor-registration) | `1de91fb9` (engine source and test) | To be proposed upstream; not submitted yet |
-| [Host-call operand release](#host-call-operand-release) | `54426b70` | To be proposed upstream; not submitted yet |
-| [Module namespace tracing](#module-namespace-tracing) | `9a82346f` | To be proposed upstream; not submitted yet |
+| [Atomic `Symbol.for` registration](#atomic-symbolfor-registration) | `1de91fb9` (engine source and test), `ed1eda72` (test lints) | Not proposed: [maintainers close AI-assisted PRs](#upstream-proposals) |
+| [Host-call operand release](#host-call-operand-release) | `54426b70` | Not proposed: [maintainers close AI-assisted PRs](#upstream-proposals); covered by the closed [#5564](https://github.com/boa-dev/boa/pull/5564) |
+| [Module namespace tracing](#module-namespace-tracing) | `9a82346f` | Not proposed: [maintainers close AI-assisted PRs](#upstream-proposals); same fix as the closed [#5561](https://github.com/boa-dev/boa/pull/5561) |
+| [Value stack on unwinding](#value-stack-on-unwinding) | `fd527950` | Not proposed: [maintainers close AI-assisted PRs](#upstream-proposals); port of the closed [#5564](https://github.com/boa-dev/boa/pull/5564) and [#5563](https://github.com/boa-dev/boa/pull/5563) |
 | [Crate identity alignment](#crate-identity-alignment) | `1de91fb9` (engine manifest), `5e9ff9bb` | Fork only: needed for embedding, not an upstream bug |
 
 GitHub Actions is disabled in this fork; evidence comes from local runs.
@@ -62,6 +63,32 @@ GitHub Actions is disabled in this fork; evidence comes from local runs.
   Local run 2026-11-01 (Windows, Rust 1.97.0): passes on `main`; fails with only the namespace/module
   source restored to `v0.22` ("cached export handles must not become permanent roots").
 
+## Value stack on unwinding
+
+- Why: a throw that a handler in an outer frame caught, or that reached an exit-early frame after
+  unwinding, left the unwound frames' `this`, function, arguments and registers on the value stack.
+  A loop of `try { outer(); } catch {}` around a nested throw failed after 1,136 iterations with an
+  uncatchable `RuntimeLimitError: reached the maximum stack size`, and each `Context::eval` that threw
+  from a nested frame leaked the same way. Separately, `SourceTextModule::initialize_environment` popped
+  its frame without truncating, so every `Module::link` called from the host left `2 + register count`
+  slots behind; after enough links `Module::load` panicked on its promise capability `expect`.
+- What: `core/engine/src/vm/mod.rs` (`handle_throw` and the uncatchable path of `handle_error` drop each
+  unwound frame's values as a return does and end an exit-early frame at its frame pointer),
+  `core/engine/src/script.rs` and `core/engine/src/builtins/eval/mod.rs` (truncate after a failed
+  declaration instantiation), `core/engine/src/object/operations.rs` (`JsObject::construct` releases its
+  operands on every exit, like `JsObject::call`), `core/engine/src/module/source.rs` (truncate after
+  linking). Ported from the unmerged boa-dev/boa#5564 and #5563 and adapted to v0.22.
+- Verified: `vm::tests::nested_throws_do_not_exhaust_the_value_stack` and
+  `vm::tests::throws_leave_the_value_stack_as_they_found_it` fail without the fix and pass with it;
+  `vm::tests::caught_nested_throw_keeps_the_calling_frame_intact` passes on both (its wrong-callee case is a
+  later upstream regression, not present in v0.22). `tests/module.rs`
+  `test_linking_modules_does_not_exhaust_the_value_stack` links from the host and fails without the fix
+  (the version in #5563 links inside a job, which v0.22 cleans up). Local run 2026-11-01 (Windows,
+  Rust 1.97.0): `cargo test -p boa_engine`, `cargo clippy -p boa_engine --all-targets -- -D warnings`,
+  `cargo fmt --check`; test262 `language`, `built-ins`, `annexB`, `intl402` against `dfe4cb03` with no
+  difference (one `Atomics.notify` agent test differed in the parallel run and passed 20 of 20 runs
+  alone on both builds). EyeAuras.Scripting `cargo test --locked --workspace` passes on `ed1eda72`.
+
 ## Crate identity alignment
 
 - Why: consumers take `boa_engine` and `boa_runtime` from this fork by Git revision and every other Boa
@@ -77,6 +104,19 @@ GitHub Actions is disabled in this fork; evidence comes from local runs.
   shows no duplicate Boa crate (local run 2026-11-01).
 - Upstream: not proposed. Upstream builds all crates from one workspace; this is only needed when a
   consumer mixes Git and registry Boa crates.
+- Side effect: `boa_cli` no longer builds in this fork, because it takes the support crates from the
+  workspace while the engine takes them from crates.io. `boa_tester` still builds.
+
+## Upstream proposals
+
+Decision 2026-11-01: none of the changes above is proposed to boa-dev/boa for now. The maintainers close
+AI-generated or AI-assisted issues and PRs without review ("Using AI to PR spam is not allowed",
+[#5560](https://github.com/boa-dev/boa/pull/5560); "No AI generated issues, please",
+[#5510](https://github.com/boa-dev/boa/issues/5510)). The namespace and value-stack fixes were already
+submitted by another contributor in [#5561](https://github.com/boa-dev/boa/pull/5561),
+[#5563](https://github.com/boa-dev/boa/pull/5563) and [#5564](https://github.com/boa-dev/boa/pull/5564)
+and closed that way. All three bugs are still present on upstream `main` (`329e8974`, 2026-10-31). When
+syncing upstream, check whether upstream fixed them on its own and drop our version if so.
 
 ## Updating from upstream
 
