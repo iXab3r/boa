@@ -110,6 +110,9 @@ explicit approval in the PR.
 
 Checks for Boa (MSRV from `rust-version` in Cargo.toml):
 
+- Target: a release tag only. The support crates come from crates.io at the base release version, so an
+  untagged upstream commit has no matching registry crates.
+
 - `cargo test -p boa_engine`, including `--test symbol_registry` and `--lib gc_tests`
 - `cargo clippy --all-targets -- -D warnings`
 - Crate identity: the engine, runtime and wintertc manifests still take the support crates (`boa_gc`,
