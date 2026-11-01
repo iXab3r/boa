@@ -1,3 +1,29 @@
+# EyeAuras fork of Boa
+
+This is a fork of [boa-dev/boa](https://github.com/boa-dev/boa) for EyeAuras.Scripting.
+The original upstream README follows below the line.
+
+- Upstream base: [`v0.22`](https://github.com/boa-dev/boa/releases/tag/v0.22)
+  ([`337a3668`](https://github.com/boa-dev/boa/commit/337a3668a0dc86dd401ea20906e782249a64a228), crates 0.22.0).
+- Branches: `main` is the upstream base plus the changes below; consumers pin commits from it.
+  `upstream` mirrors boa-dev/boa `main` and carries none of our commits.
+- Full diff: [`v0.22...main`](https://github.com/iXab3r/boa/compare/337a3668a0dc86dd401ea20906e782249a64a228...main).
+  Details, verification, upstream status and the update procedure: [FORK-PATCHES.md](FORK-PATCHES.md).
+
+Changes over upstream:
+
+- [Atomic `Symbol.for` registration](FORK-PATCHES.md#atomic-symbolfor-registration): concurrent contexts get one
+  symbol per key ([`1de91fb9`](https://github.com/iXab3r/boa/commit/1de91fb9e1153913502d90cec75417dbfd1cdd19)).
+- [Host-call operand release](FORK-PATCHES.md#host-call-operand-release): a failed callable dispatch no longer
+  leaves its operands on the VM stack ([`54426b70`](https://github.com/iXab3r/boa/commit/54426b7009e63bbccb7eb73789697042e008e214)).
+- [Module namespace tracing](FORK-PATCHES.md#module-namespace-tracing): GC traces cached namespace bindings
+  ([`9a82346f`](https://github.com/iXab3r/boa/commit/9a82346fe0f673528c8c60622b29c8e7e69e43b0)).
+- [Crate identity alignment](FORK-PATCHES.md#crate-identity-alignment): the engine, runtime and wintertc take the
+  support crates from crates.io ([`1de91fb9`](https://github.com/iXab3r/boa/commit/1de91fb9e1153913502d90cec75417dbfd1cdd19),
+  [`5e9ff9bb`](https://github.com/iXab3r/boa/commit/5e9ff9bb9584da8935493cad376d727a83770f39)); fork only.
+
+---
+
 # Boa
 
 <p align="center">
