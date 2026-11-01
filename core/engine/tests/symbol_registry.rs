@@ -1,3 +1,7 @@
+//! `Symbol.for` registration from concurrent contexts.
+
+#![allow(unused_crate_dependencies)]
+
 use std::collections::HashSet;
 use std::sync::{Arc, Barrier};
 
@@ -37,7 +41,11 @@ fn concurrent_contexts_share_one_registered_symbol_per_key() {
                                 .call(&JsValue::undefined(), &[key.clone().into()], &mut context)
                                 .unwrap();
                             let recovered = symbol_key_for
-                                .call(&JsValue::undefined(), &[symbol.clone()], &mut context)
+                                .call(
+                                    &JsValue::undefined(),
+                                    std::slice::from_ref(&symbol),
+                                    &mut context,
+                                )
                                 .unwrap();
                             (
                                 symbol.as_symbol().unwrap().hash(),
